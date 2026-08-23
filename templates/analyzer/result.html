@@ -1,0 +1,37 @@
+{% extends "analyzer/base.html" %}
+{% block content %}
+{% url 'analyzer:home' as back_url %}
+{% include "analyzer/partials/header.html" with title="" back=back_url action=None %}
+<h2 class="section-title">Perspectiva politica estimada <span class="info">i</span></h2>
+
+<div class="bias-labels">
+  <b>LEFT</b><b>CENTER</b><b>RIGHT</b>
+</div>
+<div class="bias-bar">
+  <span class="left" style="width:72%"></span>
+  <span class="center" style="width:19%"></span>
+  <span class="right" style="width:9%"></span>
+</div>
+<div class="scores">
+  <strong>{{ article.scores.left }}%</strong>
+  <strong>{{ article.scores.center }}%</strong>
+  <strong>{{ article.scores.right }}%</strong>
+</div>
+
+<section class="panel result-card">
+  <p>Orientacion estimada</p>
+  <h1>{{ article.orientation }}</h1>
+  <span>{{ article.confidence }}</span>
+</section>
+
+<section class="panel details-card">
+  <h3>Sobre este articulo</h3>
+  <dl>
+    <dt>Fuente</dt><dd>{{ article.source }}</dd>
+    <dt>Tema</dt><dd>{{ article.topic }}</dd>
+    <dt>Fecha</dt><dd>{{ article.date }}</dd>
+    <dt>Modelo</dt><dd>{{ article.model }}</dd>
+  </dl>
+</section>
+<a class="secondary-link" href="{% url 'analyzer:explanation' %}">Ver explicacion del resultado</a>
+{% endblock %}

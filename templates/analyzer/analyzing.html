@@ -1,0 +1,23 @@
+{% extends "analyzer/base.html" %}
+{% block nav %}{% endblock %}
+{% block content %}
+{% url 'analyzer:home' as back_url %}
+{% include "analyzer/partials/header.html" with title="Analizando noticia" back=back_url %}
+
+<div class="analysis-illustration">
+  <div class="paper">
+    <i></i><i></i><i></i>
+    <span class="magnifier"></span>
+  </div>
+</div>
+
+<h2 class="analysis-title">Extrayendo y analizando<br>el articulo...</h2>
+<div class="progress-line"><span style="width:78%"></span><b>78%</b></div>
+<ol class="steps">
+  <li class="done"><span></span>Extrayendo articulo</li>
+  <li class="done"><span></span>Procesando contenido</li>
+  <li class="done"><span></span>Analizando sesgo politico</li>
+  <li class="loading"><span></span>Generando resultados</li>
+</ol>
+<a class="ghost-next" href="{% url 'analyzer:result' %}">Ver resultado</a>
+{% endblock %}

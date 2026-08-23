@@ -1,0 +1,26 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}News Perspective Analyzer{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'analyzer/styles.css' %}">
+</head>
+<body class="{% if dark %}theme-dark{% endif %}">
+  <main class="stage">
+    <section class="phone">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="status-icons">||| wifi bat</span>
+      </div>
+      <div class="screen">
+        {% block content %}{% endblock %}
+      </div>
+      {% block nav %}
+        {% include "analyzer/partials/nav.html" %}
+      {% endblock %}
+    </section>
+  </main>
+</body>
+</html>

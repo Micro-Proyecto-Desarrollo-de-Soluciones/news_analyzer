@@ -1,0 +1,14 @@
+<nav class="bottom-nav" aria-label="Navegacion principal">
+  <a class="{% if active == 'home' %}active{% endif %}" href="{% url 'analyzer:home' %}">
+    <span class="nav-icon">home</span><span>Inicio</span>
+  </a>
+  <a class="{% if active == 'history' %}active{% endif %}" href="{% url 'analyzer:history' %}">
+    <span class="nav-icon">clock</span><span>Historial</span>
+  </a>
+  <a class="{% if active == 'favorites' %}active{% endif %}" href="{% url 'analyzer:favorites' %}">
+    <span class="nav-icon">heart</span><span>Favoritos</span>
+  </a>
+  <a class="{% if active == 'profile' %}active{% endif %}" href="{% url 'analyzer:profile' %}">
+    <span class="nav-icon">user</span><span>Perfil</span>
+  </a>
+</nav>

@@ -1,0 +1,21 @@
+{% extends "analyzer/base.html" %}
+{% block content %}
+{% url 'analyzer:result' as back_url %}
+{% include "analyzer/partials/header.html" with title="" back=back_url %}
+<h2 class="explain-title">¿Por que el modelo<br>llego a esta conclusion?</h2>
+<p class="lead">Estas expresiones influyeron en la prediccion del modelo.</p>
+<div class="segmented compact">
+  <button class="selected">Expresiones clave</button>
+  <button>Analisis de sentimiento</button>
+</div>
+<div class="keyword-list">
+  {% for text, weight in explanations %}
+    <article class="keyword-card">
+      <b>"{{ text }}"</b>
+      <div><span>Influencia</span><strong>{{ weight }}</strong></div>
+      <meter min="0" max="0.3" value="{{ weight }}"></meter>
+    </article>
+  {% endfor %}
+</div>
+<p class="note">Las expresiones anteriores no son inherentemente de izquierda o derecha. Reflejan patrones aprendidos por el modelo.</p>
+{% endblock %}
