@@ -91,3 +91,20 @@ class AnalysisResponse(BaseModel):
     progress: int
     steps: List[str]
     article: Article
+
+
+class PredictRequest(BaseModel):
+    titulo: Optional[str] = None
+    texto: str
+
+
+class PredictProbabilities(BaseModel):
+    center: float
+    left: float
+    right: float
+
+
+class PredictResponse(BaseModel):
+    id: str
+    clase: str
+    probabilidades: PredictProbabilities

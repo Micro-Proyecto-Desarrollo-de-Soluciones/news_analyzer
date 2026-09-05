@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from uuid import uuid4
+from pathlib import Path
 from typing import List, Optional
 
 from backend.app.schemas.news import (
@@ -12,9 +15,15 @@ from backend.app.schemas.news import (
     FavoriteItem,
     HistoryItem,
     Perspective,
+    PredictRequest,
+    PredictResponse,
     ProfileStats,
     UserProfile,
 )
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+MOCK_OUTPUT_PATH = PROJECT_ROOT / "data" / "salida.json"
 
 
 ARTICLE = Article(
@@ -155,6 +164,14 @@ def analyze_article(_: AnalysisRequest) -> AnalysisResponse:
         ],
         article=ARTICLE,
     )
+
+
+def predict(_: PredictRequest) -> PredictResponse:
+    with MOCK_OUTPUT_PATH.open(encoding="utf-8") as file:
+        output = json.load(file)
+
+    output["id"] = str(uuid4())
+    return PredictResponse.model_validate(output)
 
 
 def get_explanations() -> List[Explanation]:
