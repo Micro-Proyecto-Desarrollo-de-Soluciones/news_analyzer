@@ -13,6 +13,14 @@ pyenv install 3.12.14
 
 Swagger: `http://127.0.0.1:8000/docs`
 
+## Docker
+
+Desde la raiz del proyecto:
+
+```bash
+docker compose up --build backend
+```
+
 ## Endpoints principales
 
 - `GET /api/health`
