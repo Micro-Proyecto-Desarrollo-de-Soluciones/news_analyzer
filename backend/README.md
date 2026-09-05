@@ -33,3 +33,13 @@ docker compose up --build backend
 - `GET /api/favorites`
 - `GET /api/profile`
 - `GET /api/explore/options`
+
+## Probar predict
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/predict \
+  -H "Content-Type: application/json" \
+  --data @data/entrada.json
+```
+
+El body debe incluir `texto`. Si se envia vacio o con otra estructura, FastAPI responde `422`.

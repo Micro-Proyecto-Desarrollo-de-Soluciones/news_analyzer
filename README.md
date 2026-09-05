@@ -73,3 +73,13 @@ Servicios expuestos:
 - Swagger: `http://127.0.0.1:8000/docs`
 
 En Docker, Nginx sirve el frontend y proxyeara `/api`, `/docs` y `/openapi.json` hacia el backend.
+
+## Probar predict
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/predict \
+  -H "Content-Type: application/json" \
+  --data @data/entrada.json
+```
+
+El body debe incluir `texto`. Si se envia vacio o con otra estructura, FastAPI responde `422`.

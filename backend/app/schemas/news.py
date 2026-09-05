@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class BiasScores(BaseModel):
@@ -94,8 +94,23 @@ class AnalysisResponse(BaseModel):
 
 
 class PredictRequest(BaseModel):
-    titulo: Optional[str] = None
-    texto: str
+    titulo: Optional[str] = Field(
+        default=None,
+        description="Titulo del articulo. Es opcional.",
+    )
+    texto: str = Field(
+        description="Cuerpo completo del articulo en crudo y sin limpiar.",
+        min_length=1,
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "titulo": "Aqui va el titulo del articulo (opcional)",
+                "texto": "Aqui va el cuerpo completo del articulo, en crudo y sin limpiar.",
+            }
+        }
+    )
 
 
 class PredictProbabilities(BaseModel):

@@ -1,6 +1,6 @@
 {
   "id": "generado-por-el-backend",
-  "clase": "left",
+  "clase": "right",
   "probabilidades": {
     "center": 0.21,
     "left": 0.62,
