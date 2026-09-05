@@ -4,6 +4,7 @@ import type {
   ExploreOptions,
   FavoriteItem,
   HistoryItem,
+  PredictResponse,
   Perspective,
   Profile,
 } from "../types";
@@ -38,6 +39,13 @@ export function analyzeArticle(url: string) {
       body: JSON.stringify({ input_type: "url", url }),
     },
   );
+}
+
+export function predictArticle(payload: { titulo?: string; texto: string }) {
+  return request<PredictResponse>("/predict", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getExplanations() {

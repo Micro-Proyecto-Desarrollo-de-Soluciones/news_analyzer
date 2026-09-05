@@ -72,3 +72,15 @@ export interface ExploreOptions {
   sources: string[];
   date_ranges: string[];
 }
+
+export interface PredictProbabilities {
+  center: number;
+  left: number;
+  right: number;
+}
+
+export interface PredictResponse {
+  id: string;
+  clase: string;
+  probabilidades: PredictProbabilities;
+}

@@ -1,14 +1,15 @@
 import {
+  Activity,
+  AlertCircle,
   Bookmark,
-  ChartNoAxesColumnIncreasing,
   Check,
   CircleHelp,
+  FileText,
   Filter,
-  Landmark,
-  Link,
   Search,
+  Send,
+  ShieldCheck,
   Sparkles,
-  Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -23,6 +24,7 @@ import {
   getHistory,
   getPerspectives,
   getProfile,
+  predictArticle,
 } from "./services/api";
 import type {
   Article,
@@ -30,7 +32,9 @@ import type {
   ExploreOptions,
   FavoriteItem,
   HistoryItem,
+  Orientation,
   Perspective,
+  PredictResponse,
   Profile,
 } from "./types";
 
@@ -48,6 +52,9 @@ export type Screen =
   | "onboarding";
 
 const defaultUrl = "https://ejemplo.com/noticia";
+const defaultTitle = "Biden unveils plan to expand social programs";
+const defaultText =
+  "El presidente Biden presento un plan para expandir la inversion en programas sociales, incluyendo educacion asequible, atencion medica y vivienda. La propuesta plantea mayor inversion publica, reduccion de desigualdad y nuevos mecanismos de apoyo para comunidades vulnerables.";
 
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -58,7 +65,12 @@ export function App() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [options, setOptions] = useState<ExploreOptions | null>(null);
-  const [articleUrl, setArticleUrl] = useState(defaultUrl);
+  const [articleUrl] = useState(defaultUrl);
+  const [predictTitle, setPredictTitle] = useState(defaultTitle);
+  const [predictText, setPredictText] = useState(defaultText);
+  const [prediction, setPrediction] = useState<PredictResponse | null>(null);
+  const [predicting, setPredicting] = useState(false);
+  const [predictError, setPredictError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +110,27 @@ export function App() {
     setScreen("analyzing");
     const response = await analyzeArticle(articleUrl);
     setArticle(response.article);
+  }
+
+  async function handlePredict() {
+    if (!predictText.trim()) {
+      setPredictError("Ingresa el cuerpo de la noticia para ejecutar la prediccion.");
+      return;
+    }
+
+    setPredicting(true);
+    setPredictError(null);
+    try {
+      const response = await predictArticle({
+        titulo: predictTitle.trim() || undefined,
+        texto: predictText.trim(),
+      });
+      setPrediction(response);
+    } catch {
+      setPredictError("No se pudo ejecutar /api/predict. Verifica que el backend este activo.");
+    } finally {
+      setPredicting(false);
+    }
   }
 
   function renderScreen() {
@@ -147,11 +180,21 @@ export function App() {
         return <OnboardingScreen onContinue={() => setScreen("home")} />;
       default:
         return (
-          <HomeScreen
-            articleUrl={articleUrl}
-            onArticleUrlChange={setArticleUrl}
+          <DashboardScreen
+            article={article}
+            explanations={explanations}
+            history={history}
+            predictError={predictError}
+            predictText={predictText}
+            predictTitle={predictTitle}
+            predicting={predicting}
+            prediction={prediction}
+            profile={profile}
+            setPredictText={setPredictText}
+            setPredictTitle={setPredictTitle}
             onAnalyze={handleAnalyze}
             onNavigate={setScreen}
+            onPredict={handlePredict}
           />
         );
     }
@@ -191,70 +234,217 @@ function ErrorScreen({ message }: { message: string }) {
   );
 }
 
-function HomeScreen({
-  articleUrl,
-  onArticleUrlChange,
+function DashboardScreen({
+  article,
+  explanations,
+  history,
+  predictError,
+  predictText,
+  predictTitle,
+  predicting,
+  prediction,
+  profile,
+  setPredictText,
+  setPredictTitle,
   onAnalyze,
   onNavigate,
+  onPredict,
 }: {
-  articleUrl: string;
-  onArticleUrlChange: (value: string) => void;
+  article: Article;
+  explanations: Explanation[];
+  history: HistoryItem[];
+  predictError: string | null;
+  predictText: string;
+  predictTitle: string;
+  predicting: boolean;
+  prediction: PredictResponse | null;
+  profile: Profile;
+  setPredictText: (value: string) => void;
+  setPredictTitle: (value: string) => void;
   onAnalyze: () => void;
   onNavigate: (screen: Screen) => void;
+  onPredict: () => void;
 }) {
-  return (
-    <>
-      <div className="home-hero">
-        <div>
-          <h1>
-            News
-            <br />
-            <span>Perspective</span>
-            <br />
-            Analyzer
-          </h1>
-          <p>Entiende la perspectiva detras de las noticias que lees.</p>
-        </div>
-        <div className="app-mark" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
+  const probabilities = prediction?.probabilidades ?? {
+    left: article.scores.left / 100,
+    center: article.scores.center / 100,
+    right: article.scores.right / 100,
+  };
+  const predictedClass = prediction ? getTopOrientation(probabilities) : article.orientation;
+  const confidence = Math.max(probabilities.left, probabilities.center, probabilities.right);
 
-      <section className="panel input-panel">
-        <div className="segmented">
-          <button className="selected" type="button">
-            Pegar URL
-          </button>
-          <button type="button">Pegar Texto</button>
+  return (
+    <div className="dashboard">
+      <section className="dashboard-hero">
+        <div>
+          <span className="eyebrow">MAIA News Analyzer</span>
+          <h1>Dashboard de prediccion de perspectiva politica</h1>
+          <p>
+            Prototipo funcional conectado al backend: ingresa una noticia, ejecuta el modelo desde la API
+            y revisa probabilidades, evidencia y contexto para el usuario.
+          </p>
         </div>
-        <label className="url-field">
-          <Link aria-hidden="true" size={18} />
-          <input value={articleUrl} onChange={(event) => onArticleUrlChange(event.target.value)} aria-label="URL de noticia" />
-        </label>
-        <button className="primary-button" onClick={onAnalyze} type="button">
-          Analizar noticia
-        </button>
+        <div className="hero-actions">
+          <button className="outline-button" onClick={() => onNavigate("explore")} type="button">
+            <Search aria-hidden="true" size={17} />
+            Explorar datos
+          </button>
+          <button className="primary-button compact-button" onClick={onPredict} disabled={predicting} type="button">
+            <Send aria-hidden="true" size={17} />
+            {predicting ? "Prediciendo..." : "Ejecutar predict"}
+          </button>
+        </div>
       </section>
 
-      <p className="muted centered">o prueba con un ejemplo</p>
-      <div className="category-grid">
-        <button className="category" onClick={() => onNavigate("perspectives")} type="button">
-          <Landmark aria-hidden="true" size={21} />
-          <b>Politica</b>
-        </button>
-        <button className="category" onClick={() => onNavigate("explore")} type="button">
-          <ChartNoAxesColumnIncreasing aria-hidden="true" size={21} />
-          <b>Economia</b>
-        </button>
-        <button className="category" onClick={() => onNavigate("explore")} type="button">
-          <Users aria-hidden="true" size={21} />
-          <b>Inmigracion</b>
-        </button>
+      <section className="kpi-grid" aria-label="Indicadores del prototipo">
+        <DashboardKpi label="Endpoint usado" value="/api/predict" detail="FastAPI" icon={Activity} />
+        <DashboardKpi label="Clase estimada" value={predictedClass} detail={`${formatPercent(confidence)} confianza`} icon={ShieldCheck} />
+        <DashboardKpi label="Analisis registrados" value={String(profile.stats.analyses)} detail="Datos de usuario" icon={FileText} />
+      </section>
+
+      <div className="dashboard-grid">
+        <section className="panel prediction-workbench">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">Entrada del modelo</span>
+              <h2>Analizar noticia</h2>
+            </div>
+            <span className="endpoint-pill">POST /predict</span>
+          </div>
+          <label className="field-stack">
+            Titulo
+            <input value={predictTitle} onChange={(event) => setPredictTitle(event.target.value)} />
+          </label>
+          <label className="field-stack">
+            Texto de la noticia
+            <textarea value={predictText} onChange={(event) => setPredictText(event.target.value)} rows={9} />
+          </label>
+          {predictError && (
+            <p className="inline-error">
+              <AlertCircle aria-hidden="true" size={16} />
+              {predictError}
+            </p>
+          )}
+          <button className="primary-button" onClick={onPredict} disabled={predicting} type="button">
+            <Send aria-hidden="true" size={18} />
+            {predicting ? "Consultando backend..." : "Predecir perspectiva"}
+          </button>
+          <button className="secondary-link" onClick={onAnalyze} type="button">
+            Probar flujo de analisis por URL
+          </button>
+        </section>
+
+        <section className="panel prediction-result">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">Salida del modelo</span>
+              <h2>Resultado predict</h2>
+            </div>
+            <span className={`result-badge ${predictedClass.toLowerCase()}`}>{predictedClass}</span>
+          </div>
+          <div className="dominant-result">
+            <span>Prediccion</span>
+            <strong>{predictedClass}</strong>
+            <small>
+              {prediction
+                ? `ID: ${prediction.id} · clase API: ${prediction.clase}`
+                : "Resultado de ejemplo mientras ejecutas una prediccion"}
+            </small>
+          </div>
+          <ProbabilityBars probabilities={probabilities} />
+        </section>
       </div>
-    </>
+
+      <section className="support-grid">
+        <article className="panel rubric-card">
+          <h2>Cumplimiento de entrega</h2>
+          <ul>
+            <li>Usa el modelo empaquetado a traves de la API del backend.</li>
+            <li>Muestra prediccion y probabilidades para el usuario final.</li>
+            <li>Incluye datos relevantes: historial, explicacion y fuentes comparables.</li>
+            <li>Puede desplegarse con Docker junto al servicio FastAPI.</li>
+          </ul>
+        </article>
+        <article className="panel evidence-card">
+          <h2>Variables explicativas</h2>
+          {explanations.slice(0, 4).map((item) => (
+            <div className="evidence-row" key={item.text}>
+              <span>{item.text}</span>
+              <meter min="0" max="0.3" value={item.weight} />
+              <b>{item.weight}</b>
+            </div>
+          ))}
+        </article>
+        <article className="panel evidence-card">
+          <h2>Historial reciente</h2>
+          {history.slice(0, 3).map((item) => (
+            <div className="mini-history" key={item.id}>
+              <span className={`dot ${item.orientation.toLowerCase()}`} />
+              <p>{item.title}</p>
+              <b>{item.score}</b>
+            </div>
+          ))}
+        </article>
+      </section>
+    </div>
   );
+}
+
+function DashboardKpi({
+  detail,
+  icon: Icon,
+  label,
+  value,
+}: {
+  detail: string;
+  icon: typeof Activity;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="panel kpi-card">
+      <Icon aria-hidden="true" size={21} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function ProbabilityBars({ probabilities }: { probabilities: { left: number; center: number; right: number } }) {
+  const entries: Array<[Orientation, number]> = [
+    ["LEFT", probabilities.left],
+    ["CENTER", probabilities.center],
+    ["RIGHT", probabilities.right],
+  ];
+
+  return (
+    <div className="probability-list">
+      {entries.map(([orientation, value]) => (
+        <div className="probability-row" key={orientation}>
+          <div>
+            <b>{orientation}</b>
+            <span>{formatPercent(value)}</span>
+          </div>
+          <meter className={orientation.toLowerCase()} min="0" max="1" value={value} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function getTopOrientation(probabilities: { left: number; center: number; right: number }): Orientation {
+  const entries: Array<[Orientation, number]> = [
+    ["LEFT", probabilities.left],
+    ["CENTER", probabilities.center],
+    ["RIGHT", probabilities.right],
+  ];
+
+  return entries.reduce((winner, current) => (current[1] > winner[1] ? current : winner))[0];
 }
 
 function AnalyzingScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
