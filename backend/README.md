@@ -18,6 +18,7 @@ Swagger: `http://127.0.0.1:8000/docs`
 - `GET /api/health`
 - `GET /api/articles/current`
 - `POST /api/articles/analyze`
+- `POST /api/predict`
 - `GET /api/explanations`
 - `GET /api/perspectives`
 - `GET /api/history`

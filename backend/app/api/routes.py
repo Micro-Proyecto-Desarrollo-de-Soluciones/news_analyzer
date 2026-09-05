@@ -13,6 +13,8 @@ from backend.app.schemas.news import (
     FavoriteItem,
     HistoryItem,
     Perspective,
+    PredictRequest,
+    PredictResponse,
     UserProfile,
 )
 from backend.app.services import news_service
@@ -33,6 +35,11 @@ def current_article() -> Article:
 @router.post("/articles/analyze", response_model=AnalysisResponse, tags=["articles"])
 def analyze_article(payload: AnalysisRequest) -> AnalysisResponse:
     return news_service.analyze_article(payload)
+
+
+@router.post("/predict", response_model=PredictResponse, tags=["prediction"])
+def predict(payload: PredictRequest) -> PredictResponse:
+    return news_service.predict(payload)
 
 
 @router.get("/explanations", response_model=List[Explanation], tags=["analysis"])
