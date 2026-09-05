@@ -1,28 +1,58 @@
-# News Perspective Analyzer
+# MAIA News Analyzer
 
-Prototipo Django que renderiza una aplicacion movil para analizar la perspectiva politica de noticias.
+Aplicacion separada en un backend FastAPI y un frontend React. El prototipo Django original queda en el repositorio como referencia historica, pero la ejecucion principal ahora ocurre desde `backend/` y `frontend/`.
 
-## Ejecutar localmente
+## Estructura
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python manage.py runserver 127.0.0.1:8000
+```text
+backend/
+  app/
+    api/          Rutas REST versionables
+    core/         Configuracion
+    schemas/      Contratos Pydantic
+    services/     Logica de negocio y datos mock
+frontend/
+  src/
+    components/   Componentes reutilizables
+    services/     Cliente HTTP de la API
+    App.tsx       Pantallas React
 ```
 
-Abre `http://127.0.0.1:8000/`.
+## Backend
 
-## Pantallas
+```bash
+pyenv install 3.12.14
+/Users/gbriceno/.pyenv/versions/3.12.14/bin/python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
 
-- `/` inicio
-- `/analyzing/` estado de analisis
-- `/result/` resultado
-- `/explanation/` explicacion del modelo
-- `/perspectives/` otras perspectivas
-- `/article/` vista de articulo
-- `/history/` historial
-- `/favorites/` favoritos
-- `/explore/` filtros y busqueda
-- `/profile/` perfil
-- `/dark/` resultado en modo oscuro
-- `/onboarding/` onboarding
+Swagger: `http://127.0.0.1:8000/docs`
+
+Endpoints principales:
+
+- `GET /api/health`
+- `GET /api/articles/current`
+- `POST /api/articles/analyze`
+- `GET /api/explanations`
+- `GET /api/perspectives`
+- `GET /api/history`
+- `GET /api/favorites`
+- `GET /api/profile`
+- `GET /api/explore/options`
+
+## Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Abre `http://127.0.0.1:5173/`.
+
+Para apuntar a otra API, crea `frontend/.env`:
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
