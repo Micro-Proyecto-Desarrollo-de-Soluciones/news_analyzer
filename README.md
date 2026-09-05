@@ -57,3 +57,19 @@ Para apuntar a otra API, crea `frontend/.env`:
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
+
+## Docker
+
+Tambien puedes ejecutar toda la aplicacion con contenedores:
+
+```bash
+docker compose up --build
+```
+
+Servicios expuestos:
+
+- Frontend React: `http://127.0.0.1:5173`
+- Backend FastAPI: `http://127.0.0.1:8000`
+- Swagger: `http://127.0.0.1:8000/docs`
+
+En Docker, Nginx sirve el frontend y proxyeara `/api`, `/docs` y `/openapi.json` hacia el backend.
