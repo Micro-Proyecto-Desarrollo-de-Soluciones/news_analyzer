@@ -1,6 +1,6 @@
 # MAIA News Analyzer
 
-Aplicacion separada en un backend FastAPI y un frontend React. El prototipo Django original queda en el repositorio como referencia historica, pero la ejecucion principal ahora ocurre desde `backend/` y `frontend/`.
+Aplicacion separada en un backend FastAPI y un frontend React. El codigo Django del prototipo fue retirado para dejar una base limpia organizada por servicios.
 
 ## Estructura
 
