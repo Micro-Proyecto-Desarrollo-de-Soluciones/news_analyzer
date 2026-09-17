@@ -123,3 +123,25 @@ class PredictResponse(BaseModel):
     id: str
     clase: str
     probabilidades: PredictProbabilities
+
+    # Campos agregados al conectar el modelo real. Son opcionales, de modo que
+    # el frontend actual sigue funcionando sin cambios.
+    version_modelo: Optional[str] = Field(
+        default=None,
+        description="Version del paquete del modelo que produjo la prediccion.",
+    )
+    advertencias: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Avisos sobre la confiabilidad de la prediccion. Por ejemplo, que el "
+            "texto sea mas corto que los articulos con los que se entreno."
+        ),
+    )
+    explicacion: List[Explanation] = Field(
+        default_factory=list,
+        description=(
+            "Terminos del articulo que mas empujaron hacia la clase predicha. "
+            "Reemplaza al endpoint /explanations, que devuelve valores fijos: la "
+            "explicacion pertenece a una prediccion concreta y no al sistema."
+        ),
+    )

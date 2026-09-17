@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import json
 from uuid import uuid4
 from pathlib import Path
 from typing import List, Optional
+
+from fastapi import HTTPException
+from modelo_sesgo.predict import predecir
 
 from backend.app.schemas.news import (
     AnalysisRequest,
@@ -15,6 +17,7 @@ from backend.app.schemas.news import (
     FavoriteItem,
     HistoryItem,
     Perspective,
+    PredictProbabilities,
     PredictRequest,
     PredictResponse,
     ProfileStats,
@@ -23,7 +26,6 @@ from backend.app.schemas.news import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MOCK_OUTPUT_PATH = PROJECT_ROOT / "data" / "salida.json"
 
 
 ARTICLE = Article(
@@ -166,12 +168,38 @@ def analyze_article(_: AnalysisRequest) -> AnalysisResponse:
     )
 
 
-def predict(_: PredictRequest) -> PredictResponse:
-    with MOCK_OUTPUT_PATH.open(encoding="utf-8") as file:
-        output = json.load(file)
+def predict(payload: PredictRequest) -> PredictResponse:
+    """Clasifica la orientacion politica de un articulo con el modelo real.
 
-    output["id"] = str(uuid4())
-    return PredictResponse.model_validate(output)
+    El texto se envia SIN limpiar. Todo el preprocesamiento (desmarcado del
+    medio publicador, limpieza clasica y vectorizacion) ocurre dentro del
+    paquete, con el mismo codigo que se uso al entrenar. Si la API limpiara el
+    texto por su cuenta, el modelo veria en produccion una distribucion
+    distinta de la que aprendio.
+    """
+    resultado = predecir(
+        texto=payload.texto,
+        titulo=payload.titulo,
+        con_explicacion=True,
+    )
+
+    if resultado["errores"] is not None:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "entrada_invalida", "detalle": resultado["errores"]},
+        )
+
+    return PredictResponse(
+        id=str(uuid4()),
+        clase=resultado["clase"],
+        probabilidades=PredictProbabilities(**resultado["probabilidades"]),
+        version_modelo=resultado["version"],
+        advertencias=resultado["advertencias"],
+        explicacion=[
+            Explanation(text=item["text"], weight=item["weight"])
+            for item in resultado.get("explicacion", [])
+        ],
+    )
 
 
 def get_explanations() -> List[Explanation]:

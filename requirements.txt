@@ -1,3 +1,10 @@
 fastapi>=0.115,<1.0
 pydantic-settings>=2.7,<3.0
 uvicorn[standard]>=0.30,<0.34
+
+# Modelo de clasificacion, empaquetado en el repositorio de modelos.
+# Trae consigo el desmarcado del medio publicador, la limpieza de texto, el
+# vectorizador y el clasificador entrenado, de modo que la API no replica nada
+# del preprocesamiento y no puede divergir de como se entreno.
+# Para actualizarlo, reemplazar el .whl y ajustar la version de esta linea.
+./model-pkg/modelo_sesgo-0.1.0-py3-none-any.whl
