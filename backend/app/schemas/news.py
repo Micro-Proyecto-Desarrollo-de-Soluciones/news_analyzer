@@ -11,6 +11,11 @@ class BiasScores(BaseModel):
     right: int
 
 
+class Explanation(BaseModel):
+    text: str
+    weight: float
+
+
 class Article(BaseModel):
     id: str
     source: str
@@ -23,12 +28,16 @@ class Article(BaseModel):
     scores: BiasScores
     summary: str
     main_arguments: List[str]
-    url: HttpUrl
+    url: Optional[HttpUrl] = None
 
+    # Agregado al conectar el modelo real. Los terminos del articulo que mas
+    # empujaron hacia la orientacion predicha. Es lo que el endpoint
+    # /explanations devuelve de forma fija, pero calculado sobre este articulo.
+    explicacion: List[Explanation] = Field(default_factory=list)
 
-class Explanation(BaseModel):
-    text: str
-    weight: float
+    # Avisos sobre la confiabilidad, por ejemplo que el texto sea mas corto que
+    # los articulos con los que se entreno el modelo.
+    advertencias: List[str] = Field(default_factory=list)
 
 
 class Perspective(BaseModel):

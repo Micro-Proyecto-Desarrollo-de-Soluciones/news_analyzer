@@ -8,3 +8,7 @@ uvicorn[standard]>=0.30,<0.34
 # del preprocesamiento y no puede divergir de como se entreno.
 # Para actualizarlo, reemplazar el .whl y ajustar la version de esta linea.
 ./model-pkg/modelo_sesgo-0.1.0-py3-none-any.whl
+
+# Extraccion del cuerpo del articulo a partir de una URL. El tablero permite
+# pegar un enlace, pero el modelo recibe texto.
+trafilatura>=2.0,<3.0

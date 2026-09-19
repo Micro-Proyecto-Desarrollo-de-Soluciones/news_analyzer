@@ -7,6 +7,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 from modelo_sesgo.predict import predecir
 
+from backend.app.services import extraccion
 from backend.app.schemas.news import (
     AnalysisRequest,
     AnalysisResponse,
@@ -154,17 +155,102 @@ def get_current_article() -> Article:
     return ARTICLE
 
 
-def analyze_article(_: AnalysisRequest) -> AnalysisResponse:
+def _confianza(probabilidad_maxima: float) -> str:
+    """Traduce la probabilidad de la clase ganadora a una etiqueta legible.
+
+    Los umbrales son deliberadamente exigentes. Con tres clases el azar esta en
+    0.33, y el modelo rara vez supera 0.60: presentar como "alta" una prediccion
+    de 0.45 seria enganar al usuario.
+    """
+    if probabilidad_maxima >= 0.60:
+        return "Confianza alta"
+    if probabilidad_maxima >= 0.45:
+        return "Confianza media"
+    return "Confianza baja"
+
+
+def analyze_article(payload: AnalysisRequest) -> AnalysisResponse:
+    """Analiza un articulo a partir de una URL o de un texto pegado.
+
+    Cuando llega una URL se descarga la pagina y se extrae el cuerpo del
+    articulo; el texto resultante se envia al modelo sin limpiar, igual que en
+    /predict, porque todo el preprocesamiento vive dentro del paquete.
+    """
+    if payload.text and payload.text.strip():
+        texto = payload.text.strip()
+        titulo = "Articulo sin titulo"
+        fecha = ""
+        medio = "Texto pegado"
+        url = None
+    elif payload.url:
+        try:
+            extraido = extraccion.extraer(str(payload.url))
+        except extraccion.ExtraccionFallida as error:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": "extraccion_fallida", "detalle": str(error)},
+            )
+        texto = extraido.texto
+        titulo = extraido.titulo or "Articulo sin titulo"
+        fecha = extraido.fecha or ""
+        medio = extraido.medio or ""
+        url = payload.url
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "entrada_invalida", "detalle": "Se requiere 'url' o 'text'."},
+        )
+
+    resultado = predecir(texto=texto, titulo=titulo, con_explicacion=True)
+
+    if resultado["errores"] is not None:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "entrada_invalida", "detalle": resultado["errores"]},
+        )
+
+    probabilidades = resultado["probabilidades"]
+    maxima = max(probabilidades.values())
+
+    articulo = Article(
+        id=str(uuid4()),
+        source=medio,
+        title=titulo,
+        date=fecha,
+        # El proyecto no entrena un clasificador de tema, asi que no se inventa.
+        topic="",
+        model=f"modelo-sesgo {resultado['version']}",
+        orientation=resultado["clase"].upper(),
+        confidence=_confianza(maxima),
+        scores=BiasScores(
+            left=round(probabilidades["left"] * 100),
+            center=round(probabilidades["center"] * 100),
+            right=round(probabilidades["right"] * 100),
+        ),
+        # Recorte literal de las primeras frases, no un resumen generado: el
+        # proyecto no entrena ningun modelo de resumen.
+        summary=extraccion.extracto(texto),
+        # Ningun modelo del proyecto extrae argumentos. Se deja vacio en lugar
+        # de rellenarlo con los terminos de la explicacion, que son otra cosa.
+        main_arguments=[],
+        url=url,
+        explicacion=[
+            Explanation(text=item["text"], weight=item["weight"])
+            for item in resultado.get("explicacion", [])
+        ],
+        advertencias=resultado["advertencias"],
+    )
+
     return AnalysisResponse(
         status="completed",
         progress=100,
         steps=[
             "Extrayendo articulo",
-            "Procesando contenido",
-            "Analizando sesgo politico",
+            "Desmarcando el medio publicador",
+            "Analizando orientacion politica",
             "Generando resultados",
         ],
-        article=ARTICLE,
+        article=articulo,
     )
 
 
