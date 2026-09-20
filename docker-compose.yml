@@ -31,3 +31,18 @@ services:
         condition: service_healthy
     ports:
       - "5173:80"
+
+  mlflow:
+    build:
+      context: ./mlflow
+    container_name: maia-mlflow
+    ports:
+      - "8050:8050"
+    volumes:
+      - mlflow-data:/mlflow/data
+      - mlflow-artifacts:/mlflow/artifacts
+    restart: unless-stopped
+
+volumes:
+  mlflow-data:
+  mlflow-artifacts:

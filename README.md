@@ -83,3 +83,17 @@ curl -X POST http://127.0.0.1:8000/api/predict \
 ```
 
 El body debe incluir `texto`. Si se envia vacio o con otra estructura, FastAPI responde `422`.
+## MLflow y seguimiento de experimentos
+
+El proyecto incluye un servicio MLflow para registrar y comparar experimentos de los modelos de clasificación.
+
+MLflow se ejecuta como un tercer servicio dentro de Docker Compose y utiliza almacenamiento persistente para conservar:
+
+- La base de datos de seguimiento de experimentos.
+- Parámetros y métricas de las corridas.
+- Artefactos asociados a los modelos entrenados.
+
+El servicio queda expuesto en:
+
+```text
+http://<IP_PUBLICA_EC2>:8050
