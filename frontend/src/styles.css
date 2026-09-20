@@ -1033,6 +1033,14 @@ meter {
   color: var(--red);
 }
 
+.state-action {
+  width: auto;
+  min-width: 148px;
+  min-height: 42px;
+  padding: 0 16px;
+  color: var(--ink);
+}
+
 body {
   background: #f6f8fb;
 }
@@ -1242,6 +1250,11 @@ body {
   background: #ffe4e6;
 }
 
+.result-badge.pending {
+  color: #475569;
+  background: #e2e8f0;
+}
+
 .field-stack {
   display: grid;
   gap: 8px;
@@ -1275,9 +1288,27 @@ body {
   gap: 8px;
   align-items: center;
   margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
   color: #b91c1c;
   font-size: 13px;
   font-weight: 800;
+}
+
+.inline-error span {
+  flex: 1;
+}
+
+.inline-error button {
+  min-height: 30px;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  color: #991b1b;
+  background: white;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .dominant-result {
@@ -1290,6 +1321,11 @@ body {
   background: linear-gradient(135deg, #ecfeff, #f8fafc);
   border: 1px solid #dbeafe;
   text-align: center;
+}
+
+.dominant-result.low-confidence {
+  background: linear-gradient(135deg, #fffbeb, #f8fafc);
+  border-color: #fde68a;
 }
 
 .dominant-result span {
@@ -1306,6 +1342,63 @@ body {
 .dominant-result small {
   max-width: 92%;
   word-break: break-word;
+}
+
+.empty-prediction {
+  display: grid;
+  place-items: center;
+  min-height: 326px;
+  padding: 28px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.empty-prediction svg {
+  color: #0f766e;
+}
+
+.empty-prediction strong {
+  margin-top: 10px;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.empty-prediction p {
+  max-width: 360px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.status-notice {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  margin: -4px 0 18px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.status-notice.warning {
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.status-notice.error {
+  color: #991b1b;
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+}
+
+.status-notice p {
+  margin: 3px 0 0;
+  color: inherit;
+  line-height: 1.4;
 }
 
 .probability-list {
@@ -1378,6 +1471,18 @@ body {
 .mini-history b {
   text-align: right;
   font-size: 13px;
+}
+
+.empty-panel {
+  margin: 14px 0 0;
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: var(--muted);
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .dot {

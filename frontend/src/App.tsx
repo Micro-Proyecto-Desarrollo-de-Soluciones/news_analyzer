@@ -6,12 +6,13 @@ import {
   CircleHelp,
   FileText,
   Filter,
+  RefreshCw,
   Search,
   Send,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { BottomNav } from "./components/BottomNav";
 import { Header } from "./components/Header";
@@ -55,6 +56,7 @@ const defaultUrl = "https://ejemplo.com/noticia";
 const defaultTitle = "Biden unveils plan to expand social programs";
 const defaultText =
   "El presidente Biden presento un plan para expandir la inversion en programas sociales, incluyendo educacion asequible, atencion medica y vivienda. La propuesta plantea mayor inversion publica, reduccion de desigualdad y nuevos mecanismos de apoyo para comunidades vulnerables.";
+const LOW_CONFIDENCE_THRESHOLD = 0.55;
 
 export function App() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -74,7 +76,9 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadDashboardData = useCallback(() => {
+    setLoading(true);
+    setError(null);
     Promise.all([
       getCurrentArticle(),
       getExplanations(),
@@ -83,7 +87,7 @@ export function App() {
       getFavorites(),
       getProfile(),
       getExploreOptions(),
-    ])
+      ])
       .then(([articleData, explanationData, perspectiveData, historyData, favoriteData, profileData, optionData]) => {
         setArticle(articleData);
         setExplanations(explanationData);
@@ -99,6 +103,10 @@ export function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
   const activeNav = useMemo<Screen>(() => {
     if (["history", "favorites", "profile"].includes(screen)) {
       return screen;
@@ -108,26 +116,37 @@ export function App() {
 
   async function handleAnalyze() {
     setScreen("analyzing");
-    const response = await analyzeArticle(articleUrl);
-    setArticle(response.article);
+    try {
+      const response = await analyzeArticle(articleUrl);
+      setArticle(response.article);
+    } catch {
+      setScreen("home");
+      setPredictError("No se pudo completar el analisis por URL. Intenta nuevamente o usa el texto de la noticia.");
+    }
   }
 
   async function handlePredict() {
     if (!predictText.trim()) {
+      setPrediction(null);
       setPredictError("Ingresa el cuerpo de la noticia para ejecutar la prediccion.");
       return;
     }
 
     setPredicting(true);
     setPredictError(null);
+    setPrediction(null);
     try {
       const response = await predictArticle({
         titulo: predictTitle.trim() || undefined,
         texto: predictText.trim(),
       });
+      if (!isValidPrediction(response)) {
+        setPredictError("La API respondio con datos incompletos o invalidos. Revisa el servicio de prediccion.");
+        return;
+      }
       setPrediction(response);
     } catch {
-      setPredictError("No se pudo ejecutar /api/predict. Verifica que el backend este activo.");
+      setPredictError("No se pudo ejecutar /api/predict. Verifica que el backend este activo e intenta nuevamente.");
     } finally {
       setPredicting(false);
     }
@@ -139,11 +158,11 @@ export function App() {
     }
 
     if (error) {
-      return <ErrorScreen message={error} />;
+      return <ErrorScreen message={error} onRetry={loadDashboardData} />;
     }
 
     if (!article || !profile || !options) {
-      return <ErrorScreen message="La API no devolvio todos los datos esperados." />;
+      return <ErrorScreen message="La API no devolvio todos los datos esperados." onRetry={loadDashboardData} />;
     }
 
     const props = {
@@ -190,8 +209,16 @@ export function App() {
             predicting={predicting}
             prediction={prediction}
             profile={profile}
-            setPredictText={setPredictText}
-            setPredictTitle={setPredictTitle}
+            setPredictText={(value) => {
+              setPredictText(value);
+              setPrediction(null);
+              setPredictError(null);
+            }}
+            setPredictTitle={(value) => {
+              setPredictTitle(value);
+              setPrediction(null);
+              setPredictError(null);
+            }}
             onAnalyze={handleAnalyze}
             onNavigate={setScreen}
             onPredict={handlePredict}
@@ -225,11 +252,17 @@ function LoadingScreen() {
   );
 }
 
-function ErrorScreen({ message }: { message: string }) {
+function ErrorScreen({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="center-state error">
       <CircleHelp aria-hidden="true" size={34} />
       <p>{message}</p>
+      {onRetry && (
+        <button className="outline-button state-action" onClick={onRetry} type="button">
+          <RefreshCw aria-hidden="true" size={16} />
+          Reintentar
+        </button>
+      )}
     </div>
   );
 }
@@ -265,13 +298,10 @@ function DashboardScreen({
   onNavigate: (screen: Screen) => void;
   onPredict: () => void;
 }) {
-  const probabilities = prediction?.probabilidades ?? {
-    left: article.scores.left / 100,
-    center: article.scores.center / 100,
-    right: article.scores.right / 100,
-  };
-  const predictedClass = prediction ? getTopOrientation(probabilities) : article.orientation;
-  const confidence = Math.max(probabilities.left, probabilities.center, probabilities.right);
+  const probabilities = prediction?.probabilidades ?? null;
+  const predictedClass = probabilities ? getTopOrientation(probabilities) : null;
+  const confidence = probabilities ? Math.max(probabilities.left, probabilities.center, probabilities.right) : null;
+  const hasLowConfidence = confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD;
 
   return (
     <div className="dashboard">
@@ -298,7 +328,12 @@ function DashboardScreen({
 
       <section className="kpi-grid" aria-label="Indicadores del prototipo">
         <DashboardKpi label="Endpoint usado" value="/api/predict" detail="FastAPI" icon={Activity} />
-        <DashboardKpi label="Clase estimada" value={predictedClass} detail={`${formatPercent(confidence)} confianza`} icon={ShieldCheck} />
+        <DashboardKpi
+          label="Clase estimada"
+          value={predictedClass ?? "Sin ejecutar"}
+          detail={confidence === null ? "Esperando prediccion" : `${formatPercent(confidence)} confianza`}
+          icon={ShieldCheck}
+        />
         <DashboardKpi label="Analisis registrados" value={String(profile.stats.analyses)} detail="Datos de usuario" icon={FileText} />
       </section>
 
@@ -320,10 +355,13 @@ function DashboardScreen({
             <textarea value={predictText} onChange={(event) => setPredictText(event.target.value)} rows={9} />
           </label>
           {predictError && (
-            <p className="inline-error">
+            <div className="inline-error">
               <AlertCircle aria-hidden="true" size={16} />
-              {predictError}
-            </p>
+              <span>{predictError}</span>
+              <button onClick={onPredict} disabled={predicting || !predictText.trim()} type="button">
+                Reintentar
+              </button>
+            </div>
           )}
           <button className="primary-button" onClick={onPredict} disabled={predicting} type="button">
             <Send aria-hidden="true" size={18} />
@@ -340,18 +378,29 @@ function DashboardScreen({
               <span className="eyebrow">Salida del modelo</span>
               <h2>Resultado predict</h2>
             </div>
-            <span className={`result-badge ${predictedClass.toLowerCase()}`}>{predictedClass}</span>
+            <span className={`result-badge ${predictedClass ? predictedClass.toLowerCase() : "pending"}`}>
+              {predictedClass ?? "Pendiente"}
+            </span>
           </div>
-          <div className="dominant-result">
-            <span>Prediccion</span>
-            <strong>{predictedClass}</strong>
-            <small>
-              {prediction
-                ? `ID: ${prediction.id} · clase API: ${prediction.clase}`
-                : "Resultado de ejemplo mientras ejecutas una prediccion"}
-            </small>
-          </div>
-          <ProbabilityBars probabilities={probabilities} />
+          {prediction && probabilities && predictedClass && confidence !== null ? (
+            <>
+              <div className={`dominant-result ${hasLowConfidence ? "low-confidence" : ""}`}>
+                <span>Prediccion</span>
+                <strong>{predictedClass}</strong>
+                <small>ID: {prediction.id} · clase API: {prediction.clase}</small>
+              </div>
+              {hasLowConfidence && (
+                <StatusNotice
+                  tone="warning"
+                  title="Prediccion con baja confianza"
+                  message={`La probabilidad mas alta es ${formatPercent(confidence)}. Revisa las tres probabilidades antes de tomar una decision.`}
+                />
+              )}
+              <ProbabilityBars probabilities={probabilities} />
+            </>
+          ) : (
+            <EmptyPredictionState predicting={predicting} />
+          )}
         </section>
       </div>
 
@@ -367,27 +416,73 @@ function DashboardScreen({
         </article>
         <article className="panel evidence-card">
           <h2>Variables explicativas</h2>
-          {explanations.slice(0, 4).map((item) => (
-            <div className="evidence-row" key={item.text}>
-              <span>{item.text}</span>
-              <meter min="0" max="0.3" value={item.weight} />
-              <b>{item.weight}</b>
-            </div>
-          ))}
+          {explanations.length > 0 ? (
+            explanations.slice(0, 4).map((item) => (
+              <div className="evidence-row" key={item.text}>
+                <span>{item.text}</span>
+                <meter min="0" max="0.3" value={item.weight} />
+                <b>{item.weight}</b>
+              </div>
+            ))
+          ) : (
+            <EmptyPanel message="No hay variables explicativas disponibles para mostrar." />
+          )}
         </article>
         <article className="panel evidence-card">
           <h2>Historial reciente</h2>
-          {history.slice(0, 3).map((item) => (
-            <div className="mini-history" key={item.id}>
-              <span className={`dot ${item.orientation.toLowerCase()}`} />
-              <p>{item.title}</p>
-              <b>{item.score}</b>
-            </div>
-          ))}
+          {history.length > 0 ? (
+            history.slice(0, 3).map((item) => (
+              <div className="mini-history" key={item.id}>
+                <span className={`dot ${item.orientation.toLowerCase()}`} />
+                <p>{item.title}</p>
+                <b>{item.score}</b>
+              </div>
+            ))
+          ) : (
+            <EmptyPanel message="Todavia no hay analisis registrados." />
+          )}
         </article>
       </section>
     </div>
   );
+}
+
+function EmptyPredictionState({ predicting }: { predicting: boolean }) {
+  return (
+    <div className="empty-prediction">
+      <Sparkles aria-hidden="true" size={30} />
+      <strong>{predicting ? "Consultando servicio..." : "Sin prediccion ejecutada"}</strong>
+      <p>
+        {predicting
+          ? "El tablero mostrara la clase, confianza y probabilidades cuando la API responda."
+          : "Ingresa una noticia y ejecuta la prediccion para ver el resultado real de /api/predict."}
+      </p>
+    </div>
+  );
+}
+
+function StatusNotice({
+  message,
+  title,
+  tone,
+}: {
+  message: string;
+  title: string;
+  tone: "warning" | "error";
+}) {
+  return (
+    <div className={`status-notice ${tone}`}>
+      <AlertCircle aria-hidden="true" size={18} />
+      <div>
+        <strong>{title}</strong>
+        <p>{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function EmptyPanel({ message }: { message: string }) {
+  return <p className="empty-panel">{message}</p>;
 }
 
 function DashboardKpi({
@@ -445,6 +540,18 @@ function getTopOrientation(probabilities: { left: number; center: number; right:
   ];
 
   return entries.reduce((winner, current) => (current[1] > winner[1] ? current : winner))[0];
+}
+
+function isValidPrediction(value: PredictResponse): value is PredictResponse {
+  const probabilities = value?.probabilidades;
+  const probabilityValues = probabilities ? [probabilities.left, probabilities.center, probabilities.right] : [];
+
+  return Boolean(
+    value?.id &&
+      value?.clase &&
+      probabilityValues.length === 3 &&
+      probabilityValues.every((probability) => Number.isFinite(probability) && probability >= 0 && probability <= 1),
+  );
 }
 
 function AnalyzingScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
