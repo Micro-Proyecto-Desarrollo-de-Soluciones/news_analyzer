@@ -11,6 +11,11 @@ class BiasScores(BaseModel):
     right: int
 
 
+class Explanation(BaseModel):
+    text: str
+    weight: float
+
+
 class Article(BaseModel):
     id: str
     source: str
@@ -23,12 +28,16 @@ class Article(BaseModel):
     scores: BiasScores
     summary: str
     main_arguments: List[str]
-    url: HttpUrl
+    url: Optional[HttpUrl] = None
 
+    # Agregado al conectar el modelo real. Los terminos del articulo que mas
+    # empujaron hacia la orientacion predicha. Es lo que el endpoint
+    # /explanations devuelve de forma fija, pero calculado sobre este articulo.
+    explicacion: List[Explanation] = Field(default_factory=list)
 
-class Explanation(BaseModel):
-    text: str
-    weight: float
+    # Avisos sobre la confiabilidad, por ejemplo que el texto sea mas corto que
+    # los articulos con los que se entreno el modelo.
+    advertencias: List[str] = Field(default_factory=list)
 
 
 class Perspective(BaseModel):
@@ -123,3 +132,25 @@ class PredictResponse(BaseModel):
     id: str
     clase: str
     probabilidades: PredictProbabilities
+
+    # Campos agregados al conectar el modelo real. Son opcionales, de modo que
+    # el frontend actual sigue funcionando sin cambios.
+    version_modelo: Optional[str] = Field(
+        default=None,
+        description="Version del paquete del modelo que produjo la prediccion.",
+    )
+    advertencias: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Avisos sobre la confiabilidad de la prediccion. Por ejemplo, que el "
+            "texto sea mas corto que los articulos con los que se entreno."
+        ),
+    )
+    explicacion: List[Explanation] = Field(
+        default_factory=list,
+        description=(
+            "Terminos del articulo que mas empujaron hacia la clase predicha. "
+            "Reemplaza al endpoint /explanations, que devuelve valores fijos: la "
+            "explicacion pertenece a una prediccion concreta y no al sistema."
+        ),
+    )
