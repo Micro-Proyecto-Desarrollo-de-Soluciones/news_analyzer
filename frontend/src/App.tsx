@@ -18,8 +18,6 @@ import { BottomNav } from "./components/BottomNav";
 import { Header } from "./components/Header";
 import {
   analyzeArticle,
-  getCurrentArticle,
-  getExplanations,
   getExploreOptions,
   getFavorites,
   getHistory,
@@ -52,10 +50,8 @@ export type Screen =
   | "profile"
   | "onboarding";
 
-const defaultUrl = "https://ejemplo.com/noticia";
-const defaultTitle = "Biden unveils plan to expand social programs";
-const defaultText =
-  "El presidente Biden presento un plan para expandir la inversion en programas sociales, incluyendo educacion asequible, atencion medica y vivienda. La propuesta plantea mayor inversion publica, reduccion de desigualdad y nuevos mecanismos de apoyo para comunidades vulnerables.";
+const defaultTitle = "";
+const defaultText = "";
 const LOW_CONFIDENCE_THRESHOLD = 0.55;
 
 export function App() {
@@ -67,7 +63,7 @@ export function App() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [options, setOptions] = useState<ExploreOptions | null>(null);
-  const [articleUrl] = useState(defaultUrl);
+  const [articleUrl, setArticleUrl] = useState("");
   const [predictTitle, setPredictTitle] = useState(defaultTitle);
   const [predictText, setPredictText] = useState(defaultText);
   const [prediction, setPrediction] = useState<PredictResponse | null>(null);
@@ -80,17 +76,15 @@ export function App() {
     setLoading(true);
     setError(null);
     Promise.all([
-      getCurrentArticle(),
-      getExplanations(),
       getPerspectives(),
       getHistory(),
       getFavorites(),
       getProfile(),
       getExploreOptions(),
       ])
-      .then(([articleData, explanationData, perspectiveData, historyData, favoriteData, profileData, optionData]) => {
-        setArticle(articleData);
-        setExplanations(explanationData);
+      .then(([perspectiveData, historyData, favoriteData, profileData, optionData]) => {
+        setArticle(null);
+        setExplanations([]);
         setPerspectives(perspectiveData);
         setHistory(historyData);
         setFavorites(favoriteData);
@@ -115,10 +109,16 @@ export function App() {
   }, [screen]);
 
   async function handleAnalyze() {
+    if (!articleUrl.trim()) {
+      setPredictError("Ingresa la URL completa de una noticia antes de probar el flujo por URL.");
+      return;
+    }
+
     setScreen("analyzing");
     try {
-      const response = await analyzeArticle(articleUrl);
+      const response = await analyzeArticle({ url: articleUrl.trim() });
       setArticle(response.article);
+      setExplanations(response.article.explicacion ?? []);
     } catch {
       setScreen("home");
       setPredictError("No se pudo completar el analisis por URL. Intenta nuevamente o usa el texto de la noticia.");
@@ -145,6 +145,7 @@ export function App() {
         return;
       }
       setPrediction(response);
+      setExplanations(response.explicacion ?? []);
     } catch {
       setPredictError("No se pudo ejecutar /api/predict. Verifica que el backend este activo e intenta nuevamente.");
     } finally {
@@ -161,7 +162,7 @@ export function App() {
       return <ErrorScreen message={error} onRetry={loadDashboardData} />;
     }
 
-    if (!article || !profile || !options) {
+    if (!profile || !options) {
       return <ErrorScreen message="La API no devolvio todos los datos esperados." onRetry={loadDashboardData} />;
     }
 
@@ -180,13 +181,21 @@ export function App() {
       case "analyzing":
         return <AnalyzingScreen onBack={() => setScreen("home")} onDone={() => setScreen("result")} />;
       case "result":
-        return <ResultScreen article={article} onBack={() => setScreen("home")} onExplain={() => setScreen("explanation")} />;
+        return article ? (
+          <ResultScreen article={article} onBack={() => setScreen("home")} onExplain={() => setScreen("explanation")} />
+        ) : (
+          <ErrorScreen message="Ejecuta primero un analisis por URL para ver esta pantalla." />
+        );
       case "explanation":
-        return <ExplanationScreen explanations={explanations} onBack={() => setScreen("result")} />;
+        return <ExplanationScreen explanations={article?.explicacion ?? explanations} onBack={() => setScreen(article ? "result" : "home")} />;
       case "perspectives":
         return <PerspectivesScreen {...props} />;
       case "article":
-        return <ArticleScreen article={article} onBack={() => setScreen("perspectives")} />;
+        return article ? (
+          <ArticleScreen article={article} onBack={() => setScreen("perspectives")} />
+        ) : (
+          <ErrorScreen message="No hay un articulo analizado para mostrar." />
+        );
       case "history":
         return <HistoryScreen items={history} />;
       case "favorites":
@@ -201,6 +210,7 @@ export function App() {
         return (
           <DashboardScreen
             article={article}
+            articleUrl={articleUrl}
             explanations={explanations}
             history={history}
             predictError={predictError}
@@ -217,6 +227,10 @@ export function App() {
             setPredictTitle={(value) => {
               setPredictTitle(value);
               setPrediction(null);
+              setPredictError(null);
+            }}
+            setArticleUrl={(value) => {
+              setArticleUrl(value);
               setPredictError(null);
             }}
             onAnalyze={handleAnalyze}
@@ -269,6 +283,7 @@ function ErrorScreen({ message, onRetry }: { message: string; onRetry?: () => vo
 
 function DashboardScreen({
   article,
+  articleUrl,
   explanations,
   history,
   predictError,
@@ -279,11 +294,13 @@ function DashboardScreen({
   profile,
   setPredictText,
   setPredictTitle,
+  setArticleUrl,
   onAnalyze,
   onNavigate,
   onPredict,
 }: {
-  article: Article;
+  article: Article | null;
+  articleUrl: string;
   explanations: Explanation[];
   history: HistoryItem[];
   predictError: string | null;
@@ -294,6 +311,7 @@ function DashboardScreen({
   profile: Profile;
   setPredictText: (value: string) => void;
   setPredictTitle: (value: string) => void;
+  setArticleUrl: (value: string) => void;
   onAnalyze: () => void;
   onNavigate: (screen: Screen) => void;
   onPredict: () => void;
@@ -302,6 +320,8 @@ function DashboardScreen({
   const predictedClass = probabilities ? getTopOrientation(probabilities) : null;
   const confidence = probabilities ? Math.max(probabilities.left, probabilities.center, probabilities.right) : null;
   const hasLowConfidence = confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD;
+  const evidence = prediction?.explicacion ?? article?.explicacion ?? explanations;
+  const warnings = prediction?.advertencias ?? article?.advertencias ?? [];
 
   return (
     <div className="dashboard">
@@ -310,8 +330,8 @@ function DashboardScreen({
           <span className="eyebrow">MAIA News Analyzer</span>
           <h1>Dashboard de prediccion de perspectiva politica</h1>
           <p>
-            Prototipo funcional conectado al backend: ingresa una noticia, ejecuta el modelo desde la API
-            y revisa probabilidades, evidencia y contexto para el usuario.
+            Ingresa una noticia sin limpiar el texto: el paquete del modelo se encarga del preprocesamiento,
+            la clasificacion y las explicaciones asociadas al resultado.
           </p>
         </div>
         <div className="hero-actions">
@@ -348,11 +368,20 @@ function DashboardScreen({
           </div>
           <label className="field-stack">
             Titulo
-            <input value={predictTitle} onChange={(event) => setPredictTitle(event.target.value)} />
+            <input
+              placeholder="Titulo de la noticia, opcional"
+              value={predictTitle}
+              onChange={(event) => setPredictTitle(event.target.value)}
+            />
           </label>
           <label className="field-stack">
             Texto de la noticia
-            <textarea value={predictText} onChange={(event) => setPredictText(event.target.value)} rows={9} />
+            <textarea
+              placeholder="Pega aqui el cuerpo completo de la noticia. El tablero lo envia sin preprocesar."
+              value={predictText}
+              onChange={(event) => setPredictText(event.target.value)}
+              rows={9}
+            />
           </label>
           {predictError && (
             <div className="inline-error">
@@ -367,9 +396,19 @@ function DashboardScreen({
             <Send aria-hidden="true" size={18} />
             {predicting ? "Consultando backend..." : "Predecir perspectiva"}
           </button>
-          <button className="secondary-link" onClick={onAnalyze} type="button">
-            Probar flujo de analisis por URL
-          </button>
+          <div className="url-analysis">
+            <label className="field-stack">
+              URL de noticia
+              <input
+                placeholder="https://medio.com/ruta/de-la-noticia"
+                value={articleUrl}
+                onChange={(event) => setArticleUrl(event.target.value)}
+              />
+            </label>
+            <button className="secondary-link" onClick={onAnalyze} disabled={predicting || !articleUrl.trim()} type="button">
+              Analizar noticia desde URL
+            </button>
+          </div>
         </section>
 
         <section className="panel prediction-result">
@@ -396,7 +435,11 @@ function DashboardScreen({
                   message={`La probabilidad mas alta es ${formatPercent(confidence)}. Revisa las tres probabilidades antes de tomar una decision.`}
                 />
               )}
+              {warnings.map((warning) => (
+                <StatusNotice key={warning} tone="warning" title="Advertencia del modelo" message={warning} />
+              ))}
               <ProbabilityBars probabilities={probabilities} />
+              {prediction.version_modelo && <p className="model-version">Modelo: {prediction.version_modelo}</p>}
             </>
           ) : (
             <EmptyPredictionState predicting={predicting} />
@@ -410,22 +453,23 @@ function DashboardScreen({
           <ul>
             <li>Usa el modelo empaquetado a traves de la API del backend.</li>
             <li>Muestra prediccion y probabilidades para el usuario final.</li>
-            <li>Incluye datos relevantes: historial, explicacion y fuentes comparables.</li>
+            <li>Envia el texto crudo; el preprocesamiento ocurre dentro del paquete del modelo.</li>
+            <li>Muestra advertencias y explicaciones cuando el servicio las devuelve.</li>
             <li>Puede desplegarse con Docker junto al servicio FastAPI.</li>
           </ul>
         </article>
         <article className="panel evidence-card">
           <h2>Variables explicativas</h2>
-          {explanations.length > 0 ? (
-            explanations.slice(0, 4).map((item) => (
+          {evidence.length > 0 ? (
+            evidence.slice(0, 4).map((item) => (
               <div className="evidence-row" key={item.text}>
                 <span>{item.text}</span>
-                <meter min="0" max="0.3" value={item.weight} />
+                <meter min="0" max={Math.max(0.3, item.weight)} value={item.weight} />
                 <b>{item.weight}</b>
               </div>
             ))
           ) : (
-            <EmptyPanel message="No hay variables explicativas disponibles para mostrar." />
+            <EmptyPanel message="Las variables explicativas apareceran despues de ejecutar una prediccion o analizar una URL." />
           )}
         </article>
         <article className="panel evidence-card">
@@ -577,7 +621,7 @@ function AnalyzingScreen({ onBack, onDone }: { onBack: () => void; onDone: () =>
         <b>78%</b>
       </div>
       <ol className="steps">
-        {["Extrayendo articulo", "Procesando contenido", "Analizando sesgo politico"].map((step) => (
+        {["Extrayendo articulo", "Desmarcando el medio publicador", "Analizando orientacion politica"].map((step) => (
           <li className="done" key={step}>
             <span />
             {step}
@@ -629,16 +673,31 @@ function ResultScreen({ article, onBack, onExplain }: { article: Article; onBack
       <section className="panel details-card">
         <h3>Sobre este articulo</h3>
         <dl>
-          <dt>Fuente</dt>
-          <dd>{article.source}</dd>
-          <dt>Tema</dt>
-          <dd>{article.topic}</dd>
-          <dt>Fecha</dt>
-          <dd>{article.date}</dd>
+          {article.source && (
+            <>
+              <dt>Fuente</dt>
+              <dd>{article.source}</dd>
+            </>
+          )}
+          {article.topic && (
+            <>
+              <dt>Tema</dt>
+              <dd>{article.topic}</dd>
+            </>
+          )}
+          {article.date && (
+            <>
+              <dt>Fecha</dt>
+              <dd>{article.date}</dd>
+            </>
+          )}
           <dt>Modelo</dt>
           <dd>{article.model}</dd>
         </dl>
       </section>
+      {(article.advertencias ?? []).map((warning) => (
+        <StatusNotice key={warning} tone="warning" title="Advertencia del modelo" message={warning} />
+      ))}
       <button className="secondary-link" onClick={onExplain} type="button">
         Ver explicacion del resultado
       </button>
@@ -662,19 +721,25 @@ function ExplanationScreen({ explanations, onBack }: { explanations: Explanation
         </button>
         <button type="button">Sentimiento</button>
       </div>
-      <div className="keyword-list">
-        {explanations.map((item) => (
-          <article className="keyword-card" key={item.text}>
-            <b>"{item.text}"</b>
-            <div>
-              <span>Influencia</span>
-              <strong>{item.weight}</strong>
-            </div>
-            <meter min="0" max="0.3" value={item.weight} />
-          </article>
-        ))}
-      </div>
-      <p className="note">Las expresiones anteriores reflejan patrones aprendidos por el modelo.</p>
+      {explanations.length > 0 ? (
+        <>
+          <div className="keyword-list">
+            {explanations.map((item) => (
+              <article className="keyword-card" key={item.text}>
+                <b>"{item.text}"</b>
+                <div>
+                  <span>Influencia</span>
+                  <strong>{item.weight}</strong>
+                </div>
+                <meter min="0" max={Math.max(0.3, item.weight)} value={item.weight} />
+              </article>
+            ))}
+          </div>
+          <p className="note">Las expresiones anteriores pertenecen al articulo analizado.</p>
+        </>
+      ) : (
+        <EmptyPanel message="No hay explicacion real disponible para este articulo." />
+      )}
     </>
   );
 }
@@ -725,21 +790,31 @@ function ArticleScreen({ article, onBack }: { article: Article; onBack: () => vo
   return (
     <>
       <Header onBack={onBack} />
-      <span className="cnn-word">CNN</span>
+      {article.source && <span className="cnn-word">{article.source.slice(0, 8)}</span>}
       <span className="pill floating">{article.orientation}</span>
       <h1 className="article-title">{article.title}</h1>
-      <p className="meta">{article.date} · Politica</p>
-      <h3>Resumen</h3>
-      <p>{article.summary}</p>
-      <h3>Argumentos principales</h3>
-      <ul className="bullets">
-        {article.main_arguments.map((argument) => (
-          <li key={argument}>{argument}</li>
-        ))}
-      </ul>
-      <a className="primary-button fixed-bottom" href={article.url} target="_blank" rel="noreferrer">
-        Ver articulo completo
-      </a>
+      <p className="meta">{[article.date, article.topic].filter(Boolean).join(" · ")}</p>
+      {article.summary && (
+        <>
+          <h3>Extracto</h3>
+          <p>{article.summary}</p>
+        </>
+      )}
+      {article.main_arguments.length > 0 && (
+        <>
+          <h3>Argumentos principales</h3>
+          <ul className="bullets">
+            {article.main_arguments.map((argument) => (
+              <li key={argument}>{argument}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {article.url && (
+        <a className="primary-button fixed-bottom" href={article.url} target="_blank" rel="noreferrer">
+          Ver articulo completo
+        </a>
+      )}
     </>
   );
 }

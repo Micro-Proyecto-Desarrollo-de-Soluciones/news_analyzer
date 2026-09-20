@@ -18,7 +18,9 @@ export interface Article {
   scores: BiasScores;
   summary: string;
   main_arguments: string[];
-  url: string;
+  url?: string | null;
+  explicacion?: Explanation[];
+  advertencias?: string[];
 }
 
 export interface Explanation {
@@ -83,4 +85,7 @@ export interface PredictResponse {
   id: string;
   clase: string;
   probabilidades: PredictProbabilities;
+  version_modelo?: string | null;
+  advertencias?: string[];
+  explicacion?: Explanation[];
 }

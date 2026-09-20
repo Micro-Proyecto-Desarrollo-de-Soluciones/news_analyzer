@@ -31,12 +31,16 @@ export function getCurrentArticle() {
   return request<Article>("/articles/current");
 }
 
-export function analyzeArticle(url: string) {
+export function analyzeArticle(payload: { url?: string; text?: string }) {
   return request<{ article: Article; progress: number; status: string; steps: string[] }>(
     "/articles/analyze",
     {
       method: "POST",
-      body: JSON.stringify({ input_type: "url", url }),
+      body: JSON.stringify({
+        input_type: payload.url ? "url" : "text",
+        url: payload.url,
+        text: payload.text,
+      }),
     },
   );
 }
