@@ -41,20 +41,31 @@ el frontend anterior sigue funcionando:
   corto que los artículos con los que se entrenó.
 - `version_modelo` — versión del paquete que produjo la predicción.
 
-## Por qué el modelo desplegado no es el de mejor métrica
+## Qué modelo se desplegó
 
-Se desplegó el baseline TF-IDF (F1 macro 0.4882) y no el modelo de embeddings
-(0.5546), por tres razones de producto:
+El clasificador TF-IDF con regresión logística, que es el mejor del proyecto.
 
-- **Explicabilidad.** En TF-IDF cada columna es una palabra, así que el
-  coeficiente del clasificador dice cuánto empuja ese término hacia cada clase.
-  Las dimensiones de un embedding no corresponden a palabras y no hay nada
-  equivalente que mostrar. El tablero necesita esa explicación.
-- **Tamaño y latencia.** No arrastra PyTorch ni descargas de modelos. La imagen
-  baja de unos 2 GB a unos cientos de MB y la inferencia pasa a milisegundos.
-- **Contexto completo.** Al ser bolsa de palabras no trunca el artículo.
+| representación | F1 macro en prueba |
+|---|---|
+| MiniLM (256 tokens) | 0.4383 |
+| bge (512 tokens) | 0.4627 |
+| nomic (2048 tokens) | 0.5546 |
+| **TF-IDF** | **0.5557** |
 
-El paquete está preparado para cambiar de modelo sin reescribirlo.
+Partió por debajo del modelo de embeddings (0.4882) y lo superó tras
+seleccionar hiperparámetros por validación cruzada agrupada por medio, en lugar
+de un único corte de validación, y entrenar sobre train+val.
+
+Además es el que mejor encaja en el producto. Permite explicar cada predicción
+con las palabras del artículo, porque cada columna de la matriz es un término y
+el coeficiente del clasificador se lee directamente; las dimensiones de un
+embedding no corresponden a palabras. No arrastra PyTorch ni descargas de
+modelos, con lo que la imagen baja de unos 2 GB a cientos de MB y la inferencia
+pasa a milisegundos. Y al ser bolsa de palabras procesa el artículo completo,
+mientras que los modelos densos cortan en su límite de tokens.
+
+El paquete está preparado para cambiar de modelo sin reescribirlo: basta
+reemplazar el wheel y actualizar una línea de `requirements.txt`.
 
 ## Pendiente en el frontend
 
